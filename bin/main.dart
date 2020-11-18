@@ -1,18 +1,28 @@
 import 'dart:io';
 
-import '../podos/api_users.dart';
-import 'socket_communication.dart';
+import 'package:dart_consume_chat/socket_communication.dart';
+import 'package:dart_consume_chat/user_api.dart';
 
 void main(List<String> args) async {
-  final userApi = UsersAPI();
+  if (args.isEmpty) {
+    stderr.writeln('Error: Specify the REST API URL and the Socket API URL');
+    stdout.writeln('Example: dart main.dart <RST API URL> <Socket API URL>');
+    exit(2);
+  }
+  if (args.length != 2) {
+    stderr.writeln('Error: Specify the REST API URL and the Socket API URL');
+    stdout.writeln('Example: dart main.dart <RST API URL> <Socket API URL>');
+    stdout.writeln('Note: Don\'t specify more or less parameters');
+    exit(2);
+  }
+  final userApi = UserAPI(args[0]);
   var whoami;
   var user;
+
   stdout.writeln('''
-    ____             __     ________          __ 
-   / __ \\____ ______/ /_   / ____/ /_  ____ _/ /_
-  / / / / __ `/ ___/ __/  / /   / __ \\/ __ `/ __/
- / /_/ / /_/ / /  / /_   / /___/ / / / /_/ / /_  
-/_____/\\__,_/_/   \\__/   \\____/_/ /_/\\__,_/\\__/                                                 
+ __             _  _  _
+/  |_  _ _|_   |_||_)|_)
+\\__| |(_| |_   | ||  |
   ''');
 
   while (true) {
@@ -20,20 +30,20 @@ void main(List<String> args) async {
     final input = stdin.readLineSync();
     if (input.toUpperCase() == 'YES') {
       stdout.write('Enter your id then: ');
-      final uuid = stdin.readLineSync();
+      final id = stdin.readLineSync();
       stdout.writeln('---------------');
       stdout.writeln('Looking for it in the database...');
       stdout.writeln('---------------');
-      if (uuid.trim().isEmpty) {
+      if (id.trim().isEmpty) {
         stdout.writeln('!!!!!!!!!!!!!!!');
         stdout.writeln('Please provide a proper id.');
         stdout.writeln('!!!!!!!!!!!!!!!');
         continue;
       }
-      final response = await userApi.getUserbyID(uuid);
+      final response = await userApi.getUserbyID(id);
       if (response.statusCode == HttpStatus.ok) {
         final userData = response.data;
-        whoami = userData['uuid'];
+        whoami = userData['id'];
         user = userData['user'];
         break;
       } else {
@@ -58,16 +68,19 @@ void main(List<String> args) async {
       final response = await userApi.createUser(name);
       if (response.statusCode == HttpStatus.created) {
         final userCreated = response.data;
-        stdout.writeln(' =========================================================');
-        stdout.writeln('| User created!                                           |');
-        stdout.writeln('| Here is your id: ${userCreated['uuid']}   |');
-        stdout.writeln(' =========================================================');
-        whoami = userCreated['uuid'];
+        stdout.writeln(
+            ' =========================================================');
+        stdout.writeln(
+            '| User created!                                           |');
+        stdout.writeln('| Here is your id: ${userCreated['id']}   |');
+        stdout.writeln(
+            ' =========================================================');
+        whoami = userCreated['id'];
         user = userCreated['user'];
         break;
       } else {
         final userData = response.data;
-        stdout.writeln(userData['msg']);
+        stdout.writeln(userData);
       }
     } else {
       stdout.writeln('!!!!!!!!!!!!!!!');
@@ -86,8 +99,7 @@ void main(List<String> args) async {
     \n
   ''');
 
-  final socket = SocketCommunication(whoami);
-
+  final socket = SocketCommunication(whoami, args[0], args[1]);
   stdin.listen((ascii_list) async {
     final inputArr = [];
     // Plataform explanation here : https://en.wikipedia.org/wiki/Newline
@@ -114,7 +126,7 @@ void main(List<String> args) async {
           }
         } else {
           final userData = response.data;
-          stdout.writeln(userData['msg']);
+          stdout.writeln('ERROR !!!!!!!!!! = ${userData['msg']}');
         }
         stdout.writeln();
         break;
@@ -127,7 +139,7 @@ void main(List<String> args) async {
         final inputSplitted = input.split(' ');
         final ids = [];
         if (inputSplitted.length < 4) {
-          print('\nWrong command\n');
+          stdout.writeln('\nWrong command\n');
           return;
         }
         var arg = 'id';
@@ -146,7 +158,7 @@ void main(List<String> args) async {
                 'message': inputSplitted
                     .getRange(i, inputSplitted.length)
                     .toList()
-                    .join(' '),
+                    .join(),
                 'sender': whoami,
                 'receiver': receiver,
               };
@@ -155,7 +167,7 @@ void main(List<String> args) async {
             break;
           }
         }
-        print('\nMessage sended!\n');
+        stdout.writeln('\nMessage sended!\n');
         break;
       default:
         stdout.writeln('\nCommand not found\n');
